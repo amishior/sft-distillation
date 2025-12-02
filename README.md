@@ -1,65 +1,65 @@
 # SFT Dataset Distillation Pipeline
 
-一个基于多 LLM 自动生成、评估和筛选 SFT（Supervised Fine-Tuning）训练数据的数据蒸馏流水线。
+A data distillation pipeline that automates the generation, evaluation, and filtering of SFT (Supervised Fine-Tuning) training data using multiple LLMs.
 
-## 功能简介
+## Features
 
-* 从领域知识切片（JSONL）自动生成指令-回复对
-* 使用多个 LLM 对生成样本进行多维度质量评估
-* 基于评分进行筛选与语义去重
-* 输出符合 ShareGPT 格式的 `train.jsonl` / `val.jsonl` 以及元数据 `metadata.json`
+* Auto-generate instruction-response pairs from domain knowledge slices (JSONL)
+* Multi-dimensional quality evaluation of generated samples using multiple LLMs
+* Filtering and semantic deduplication based on scores
+* Outputs `train.jsonl` / `val.jsonl` in ShareGPT format and metadata `metadata.json`
 
-适用于：
+Applicable for:
 
-* 从领域知识库蒸馏高质量 SFT 训练数据
-* 为领域大模型微调自动构造训练 / 评测集
-* 搭建可扩展、可替换 LLM 的数据生产流水线
+* Distilling high-quality SFT training data from domain knowledge bases
+* Automatically constructing training/evaluation sets for domain LLM fine-tuning
+* Building scalable, LLM-swappable data production pipelines
 
 ---
 
-## 项目结构
+## Project Structure
 
 ```text
 sft-distillation/
 ├─ sft_distill/
 │  ├─ __init__.py
-│  ├─ config.py          # 配置模版 & 默认参数
-│  ├─ models.py          # Pydantic 数据模型
-│  ├─ prompts.py         # 生成 / 评估 Prompt 模版
-│  ├─ llm_client.py      # 通用 LLM API Client（异步）
-│  ├─ utils.py           # JSON 抽取等通用工具
-│  ├─ generator.py       # SFT 数据生成器
-│  ├─ evaluator.py       # 质量评估器
-│  ├─ filtering.py       # 筛选与去重逻辑
-│  ├─ data_io.py         # JSONL 读写等 I/O
-│  ├─ pipeline.py        # DatasetDistillationPipeline 主工作流
+│  ├─ config.py          # Configuration template & default parameters
+│  ├─ models.py          # Pydantic data models
+│  ├─ prompts.py         # Generation/evaluation prompt templates
+│  ├─ llm_client.py      # Universal LLM API Client (async)
+│  ├─ utils.py           # Common utilities (JSON extraction, etc.)
+│  ├─ generator.py       # SFT data generator
+│  ├─ evaluator.py       # Quality evaluator
+│  ├─ filtering.py       # Filtering and deduplication logic
+│  ├─ data_io.py         # JSONL I/O operations
+│  ├─ pipeline.py        # DatasetDistillationPipeline main workflow
 ├─ scripts/
-│  └─ run_pipeline.py    # 命令行入口
+│  └─ run_pipeline.py    # Command-line entry point
 ├─ requirements.txt
 ├─ README.md
 ```
 
 ---
 
-## 环境与安装
+## Environment & Installation
 
-### 环境要求
+### Requirements
 
 * Python 3.10+
 
-### 安装依赖
+### Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-你也可以使用可编辑安装的方式（可选）：
+You can also install in editable mode (optional):
 
 ```bash
 pip install -e .
 ```
 
-或者直接使用：
+Or run directly with:
 
 ```bash
 PYTHONPATH=. python scripts/run_pipeline.py --input ./knowledge_slices.jsonl
@@ -67,27 +67,27 @@ PYTHONPATH=. python scripts/run_pipeline.py --input ./knowledge_slices.jsonl
 
 ---
 
-## 配置说明
+## Configuration
 
-默认配置位于 `sft_distill/config.py` 中的 `CONFIG_TEMPLATE`：
+Default configuration is located in `sft_distill/config.py` via `CONFIG_TEMPLATE`:
 
 ```python
 CONFIG_TEMPLATE = {
     "generator": {
-        "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1 ",
         "api_key": "",
         "model": "qwen3-max",
         "max_concurrent": 5,
     },
     "evaluators": {
         "primary": {
-            "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1 ",
             "api_key": "",
             "model": "Moonshot-Kimi-K2-Instruct",
             "max_concurrent": 3,
         },
         "secondary": {
-            "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1 ",
             "api_key": "",
             "model": "deepseek-v3.2-exp",
             "max_concurrent": 3,
@@ -102,7 +102,7 @@ CONFIG_TEMPLATE = {
 }
 ```
 
-你可以通过 `config.json` 覆盖这些配置（浅合并）：
+You can override these configurations via `config.json` (shallow merge):
 
 ```jsonc
 {
@@ -123,7 +123,7 @@ CONFIG_TEMPLATE = {
 }
 ```
 
-运行时指定：
+Specify at runtime:
 
 ```bash
 python scripts/run_pipeline.py \
@@ -134,32 +134,32 @@ python scripts/run_pipeline.py \
 
 ---
 
-## 输入数据格式
+## Input Data Format
 
-输入文件是 JSONL，每行一个知识切片：
+Input file is JSONL, one knowledge slice per line:
 
 ```json
-{"id": "slice_1", "content": "数千到数万字的领域知识文本...", "metadata": {"domain": "insurance"}}
+{"id": "slice_1", "content": "Domain knowledge text of thousands to tens of thousands of characters...", "metadata": {"domain": "insurance"}}
 ```
 
-字段说明：
+Field descriptions:
 
-* `id`：知识切片 ID，可选，不填则自动生成
-* `content`：长文本内容（条款、文档片段等），必填
-* `metadata`：可选元数据，例如来源、领域标签等
+* `id`: Knowledge slice ID (optional, auto-generated if not provided)
+* `content`: Long text content (clauses, document snippets, etc.), required
+* `metadata`: Optional metadata, e.g., source, domain labels
 
 ---
 
-## 输出数据格式
+## Output Data Format
 
-运行结束后，`output_dir`（默认 `./distilled_dataset`）下会包含：
+After execution, the `output_dir` (default `./distilled_dataset`) will contain:
 
-* `train.jsonl`：训练集（ShareGPT 格式）
-* `val.jsonl`：验证集（ShareGPT 格式）
-* `generated_raw.jsonl`：原始生成的 SFT 样本（未筛选）
-* `metadata.json`：元信息（样本数量、平均得分等）
+* `train.jsonl`: Training set (ShareGPT format)
+* `val.jsonl`: Validation set (ShareGPT format)
+* `generated_raw.jsonl`: Raw generated SFT samples (unfiltered)
+* `metadata.json`: Metadata (sample count, average score, etc.)
 
-### ShareGPT 样本示例
+### ShareGPT Sample Example
 
 ```json
 {
@@ -167,11 +167,11 @@ python scripts/run_pipeline.py \
   "conversations": [
     {
       "from": "human",
-      "value": "指令文本\n\n可选 input 内容"
+      "value": "Instruction text\n\nOptional input content"
     },
     {
       "from": "gpt",
-      "value": "高质量回答文本"
+      "value": "High-quality response text"
     }
   ],
   "avg_score": 8.2,
@@ -196,9 +196,9 @@ python scripts/run_pipeline.py \
 
 ---
 
-## 运行示例
+## Running Example
 
-1. 准备知识切片：
+1. Prepare knowledge slices:
 
 ```bash
 cat > knowledge_slices.jsonl << 'EOF'
@@ -207,9 +207,9 @@ cat > knowledge_slices.jsonl << 'EOF'
 EOF
 ```
 
-2. 填写 API Key（在 `config.json` 或 `config.py` 中）
+2. Fill in API Key (in `config.json` or `config.py`)
 
-3. 运行流水线：
+3. Run pipeline:
 
 ```bash
 python scripts/run_pipeline.py \
@@ -220,9 +220,9 @@ python scripts/run_pipeline.py \
 
 ---
 
-## 高级用法：语义去重
+## Advanced Usage: Semantic Deduplication
 
-`DataFilter` 支持传入 `embed_fn` 做句向量去重。例如：
+`DataFilter` supports passing `embed_fn` for sentence embedding deduplication. For example:
 
 ```python
 from typing import Iterable
@@ -232,23 +232,23 @@ from sft_distill.filtering import DataFilter
 
 
 def my_embed_fn(texts: Iterable[str]) -> np.ndarray:
-    # 使用你自己的 embedding 模型
+    # Use your own embedding model
     return your_embedder.encode(list(texts))
 
 config = {
-    # ... 其他配置
+    # ... other configurations
     "embed_fn": my_embed_fn,
 }
 ```
 
-当 `embed_fn` 存在时，将基于 **余弦相似度** 做去重；否则使用简单的 **Jaccard 文本相似度**。
+When `embed_fn` is provided, deduplication will be based on **cosine similarity**; otherwise, simple **Jaccard text similarity** will be used.
 
 ---
 
 ## TODO
 
-* 支持断点续跑（只重跑评估或去重阶段）
-* 支持输出更多格式（Alpaca、ChatML 等）
-* 引入更细粒度的评分维度和加权策略
+* Support for resuming from breakpoints (re-running only evaluation or deduplication stages)
+* Support for more output formats (Alpaca, ChatML, etc.)
+* Introduce more granular scoring dimensions and weighting strategies
 
 ---
